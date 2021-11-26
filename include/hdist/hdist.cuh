@@ -26,7 +26,7 @@ public:
 namespace hdist
 {
 
-    struct State : Managed
+    struct State : public Managed
     {
         int room_size = 300;
         float block_size = 2;
@@ -40,13 +40,7 @@ namespace hdist
         bool operator==(const State &that) const = default;
     };
 
-    struct Alt
-    {
-    };
-
-    constexpr static inline Alt alt{};
-
-    struct Grid : Managed
+    struct Grid : public Managed
     {
         const max_size = 1024;
         double data0[max_size * max_size], data1[max_size * max_size];
@@ -80,71 +74,53 @@ namespace hdist
             }
         }
 
-        double[] & get_current_buffer()
+        __device__ double[] & get_current_buffer()
         {
             if (current_buffer == 0)
                 return data0;
             return data1;
         }
 
-        double &operator[](i, j)
+        __device__ double &operator[](size_t i, size_t j)
         {
             return get_current_buffer()[i * length + j];
         }
 
-        double &operator[](std::tuple<Alt, size_t, size_t> index)
+        __device__ double &operator[](size_t flag, size_t i, size_t j)
         {
-            return current_buffer == 1 ? data0[std::get<1>(index) * length + std::get<2>(index)] : data1[std::get<1>(index) * length + std::get<2>(index)];
+            return current_buffer == 1 ? data0[i * length + j(index)] : data1[i * length + j];
         }
 
-        void switch_buffer()
+        __device__ void switch_buffer()
         {
             current_buffer = !current_buffer;
         }
     };
 
-    struct UpdateResult
+    struct UpdateResult : public Managed
     {
         bool stable;
         double temp;
     };
 
-    UpdateResult update_single(size_t i, size_t j, Grid &grid, const State &state)
+    __device__ *UpdateResult update_single(size_t i, size_t j, Grid &grid, const State &state)
     {
-        UpdateResult result{};
+        UpdateResult *result = new UpdateResult();
         if (i == 0 || j == 0 || i == state.room_size - 1 || j == state.room_size - 1)
         {
-            result.temp = state.border_temp;
+            result->temp = state.border_temp;
         }
         else if (i == state.source_x && j == state.source_y)
         {
-            result.temp = state.source_temp;
+            result->temp = state.source_temp;
         }
         else
         {
-            auto sum = (grid[{i + 1, j}] + grid[{i - 1, j}] + grid[{i, j + 1}] + grid[{i, j - 1}]);
+            auto sum = (grid[i + 1, j] + grid[i - 1, j] + grid[i, j + 1] + grid[i, j - 1]);
             result.temp = 0.25 * sum;
         }
-        result.stable = std::fabs(grid[{i, j}] - result.temp) < state.tolerance;
+        double fabs = (grid[i, j] - result->temp) > 0 ? grid[i, j] - result->temp : result->temp - grid[i, j];
+        result->stable = fabs < state.tolerance;
         return result;
     }
-
-    __device__ bool calculate(const State &state, Grid &grid)
-    {
-        bool stabilized = true;
-
-        for (size_t i = 0; i < state.room_size; ++i)
-        {
-            for (size_t j = 0; j < state.room_size; ++j)
-            {
-                auto result = update_single(i, j, grid, state);
-                stabilized &= result.stable;
-                grid[{alt, i, j}] = result.temp;
-            }
-        }
-        grid.switch_buffer();
-
-        return stabilized;
-    };
-
 } // namespace hdist

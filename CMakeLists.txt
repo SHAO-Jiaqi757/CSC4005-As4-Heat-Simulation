@@ -38,6 +38,8 @@ target_link_libraries(core PUBLIC
 target_compile_definitions(core PUBLIC -DImDrawIdx=unsigned)
 
 add_executable(sequential_gui src/sequential_gui.cpp src/graphic.cpp)
+
+#sequential_gui
 target_link_libraries(sequential_gui core)
 target_compile_definitions(sequential_gui PRIVATE -DFONT_PATH=\"${FONT_PATH}\")
 # pthread_gui
@@ -49,6 +51,21 @@ add_executable(omp_gui src/omp_gui.cpp src/graphic.cpp)
 target_link_libraries(omp_gui core)
 target_compile_definitions(omp_gui PRIVATE -DFONT_PATH=\"${FONT_PATH}\")
 
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    message("release mode include cuda")
+    enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 14)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -ccbin=/opt/rh/devtoolset-10/root/usr/bin/gcc -gencode=arch=compute_75,code=[sm_75,compute_75]")
+    add_executable(cuda_gui src/graphic.cpp src/cuda_gui.cu)
+    target_link_libraries(cuda_gui core)
+    set_target_properties(
+        cuda_gui
+        PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON
+        CUDA_ARCHITECTURES OFF
+        )
+endif()
 if (WIN32)
     target_link_options(sequential_gui BEFORE PRIVATE -lmingw32 -lSDL2main -lSDL2 -mwindows)
 endif()

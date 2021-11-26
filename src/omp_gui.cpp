@@ -30,7 +30,7 @@ int main(int argc, char **argv)
     // UNUSED(argc, argv);
     if (argc < 2)
     {
-        printf("Error: No <thread_number> found! \nUseage: pthread_gui <thread_number> \n");
+        printf("Error: No <thread_number> found! \nUseage: omp_gui <thread_number> \n");
         return 0;
     }
     thread_number = atoi(argv[1]);
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
 
             if (finished) end = std::chrono::high_resolution_clock::now();
         } else {
-            ImGui::Text("stabilized in %ld ns", std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
+            ImGui::Text("stabilized in %lld ns", std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
         }
 
         // drawing...;

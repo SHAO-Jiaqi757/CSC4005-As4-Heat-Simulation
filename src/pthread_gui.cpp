@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 
             if (finished) end = std::chrono::high_resolution_clock::now();
         } else {
-            ImGui::Text("stabilized in %ld ns", std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
+            ImGui::Text("stabilized in %lld ns", std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
         }
 
         // drawing...;
@@ -151,6 +151,7 @@ void *pthread_calculate(void *arg)
             grid[{hdist::alt, i, j}] = result.temp;
         }
     }
+    return nullptr;
 };
 
 void get_slice(int &start_row, int &end_row, int thread_id, int thread_number)
