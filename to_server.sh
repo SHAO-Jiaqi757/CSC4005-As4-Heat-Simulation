@@ -1,0 +1,1 @@
+rsync -a --exclude={'build'} ./ csc4005_group:/pvfsmnt/119010256/As4_bench/
