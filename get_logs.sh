@@ -1,0 +1,1 @@
+rsync -r csc4005_group:/pvfsmnt/119010256/As4_bench/result/logs/ ./result/logs

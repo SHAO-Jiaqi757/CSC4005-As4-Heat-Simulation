@@ -50,7 +50,7 @@ int main(int argc, char **argv)
     end = std::chrono::high_resolution_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
-    printf("pthread_number: %d \n", thread_number);
+    printf("openmp_thread: %d \n", thread_number);
     printf("problem_size: %d \n", current_state.room_size);
     printf("iterations: %d \n", iter);
     printf("duration(ns/iter): %lld \n", duration / iter);

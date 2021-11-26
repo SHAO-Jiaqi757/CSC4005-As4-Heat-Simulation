@@ -17,7 +17,7 @@ do
         done
         echo "#!/bin/bash" > ./tmp/$size.sh
         echo "export LD_LIBRARY_PATH=./build/" >> ./tmp/$size.sh
-        echo "./build/openmp $thread_num $size 4 >> ./result/logs/${tag}-${dt}.log" >> ./tmp/$size.sh
+        echo "./build/omp $thread_num $size 4 >> ./result/logs/${tag}-${dt}.log" >> ./tmp/$size.sh
 
         cat ./tmp/$size.sh
         sbatch --wait --account=csc4005 --partition=debug --qos=normal  --nodes=1 --ntasks-per-node=32 --ntasks=32 ./tmp/$size.sh
