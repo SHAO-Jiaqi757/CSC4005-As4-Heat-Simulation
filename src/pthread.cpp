@@ -9,9 +9,8 @@ void get_slice(int &start_row, int &end_row, int thread_id, int thread_number);
 int iter = 0;
 int thread_number = 2;
 void *pthread_calculate(void *arg);
-bool pthread_routine();
+void pthread_routine();
 // pthread_barrier_t barrier;
-std::vector<bool> stable_vector(thread_number, 1);
 
 static hdist::State current_state;
 auto grid = hdist::Grid{
@@ -43,9 +42,7 @@ int main(int argc, char **argv)
     begin = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < iter; i++)
     {
-        bool finished = pthread_routine();
-        if (finished)
-            break;
+        pthread_routine();
     }
     end = std::chrono::high_resolution_clock::now();
 
@@ -56,12 +53,10 @@ int main(int argc, char **argv)
     printf("duration(ns/iter): %lld \n", duration / iter);
 }
 
-bool pthread_routine()
+void pthread_routine()
 {
-    bool stabilized = true;
     std::vector<pthread_t> threads(thread_number);
     std::vector<int> thread_ids(thread_number);
-    // pthread_barrier_init(&barrier, NULL, thread_number);
     for (int i = 0; i < thread_number; i++)
     {
         thread_ids[i] = i;
@@ -70,26 +65,19 @@ bool pthread_routine()
     for (int i = 0; i < thread_number; i++)
     {
         pthread_join(threads[i], NULL);
-        stabilized &= stable_vector[i];
     }
     grid.switch_buffer();
-    return stabilized;
 }
 void *pthread_calculate(void *arg)
 {
     int thread_id = *(int *)arg;
     int start_row, end_row;
-    stable_vector[thread_id] = 1;
-
     get_slice(start_row, end_row, thread_id, thread_number);
-    // printf("thread [%d] >> start row: %d, end row: %d\n", thread_id, start_row, end_row);
-
     for (size_t i = start_row; i < end_row; ++i)
     {
         for (size_t j = 0; j < current_state.room_size; ++j)
         {
             auto result = update_single(i, j, grid, current_state);
-            stable_vector[thread_id] = stable_vector[thread_id] & result.stable;
             grid[{hdist::alt, i, j}] = result.temp;
         }
     }

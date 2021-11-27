@@ -15,8 +15,8 @@ auto grid = hdist::Grid{
     static_cast<size_t>(current_state.source_x),
     static_cast<size_t>(current_state.source_y)};
 int thread_number;
-bool omp_thread_routine();
-std::vector<bool> stable_vector(current_state.room_size, 1);
+void omp_thread_routine();
+// std::vector<bool> stable_vector(current_state.room_size, 1);
 
 int main(int argc, char **argv)
 {
@@ -42,10 +42,7 @@ int main(int argc, char **argv)
     begin = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < iter; i++)
     {
-        bool finished = omp_thread_routine();
-
-        if (finished)
-            break;
+        omp_thread_routine();
     }
     end = std::chrono::high_resolution_clock::now();
 
@@ -56,27 +53,17 @@ int main(int argc, char **argv)
     printf("duration(ns/iter): %lld \n", duration / iter);
 }
 
-bool omp_thread_routine()
+void omp_thread_routine()
 {
-    bool stabilized = true;
-
-#pragma omp parallel for num_threads(thread_number) shared(stable_vector, grid, current_state)
+#pragma omp parallel for num_threads(thread_number) shared(grid, current_state)
     for (size_t i = 0; i < current_state.room_size; ++i)
     {
-        stable_vector[i] = 1;
         for (size_t j = 0; j < current_state.room_size; ++j)
         {
             auto result = update_single(i, j, grid, current_state);
-            stable_vector[i] = stable_vector[i] & result.stable;
             grid[{hdist::alt, i, j}] = result.temp;
         }
     }
 #pragma omp barrier
-
     grid.switch_buffer();
-    for (size_t i = 0; i < current_state.room_size; ++i)
-    {
-        stabilized &= stable_vector[i];
-    }
-    return stabilized;
 }
