@@ -50,7 +50,10 @@ target_compile_definitions(pthread_gui PRIVATE -DFONT_PATH=\"${FONT_PATH}\")
 add_executable(omp_gui src/omp_gui.cpp src/graphic.cpp)
 target_link_libraries(omp_gui core)
 target_compile_definitions(omp_gui PRIVATE -DFONT_PATH=\"${FONT_PATH}\")
-
+# mpi_gui
+add_executable(mpi_gui src/mpi_gui.cpp src/graphic.cpp)
+target_link_libraries(mpi_gui core)
+target_compile_definitions(mpi_gui PRIVATE -DFONT_PATH=\"${FONT_PATH}\")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     message("release mode include cuda")

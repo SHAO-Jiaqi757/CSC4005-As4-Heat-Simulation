@@ -3,8 +3,8 @@
 #include <vector>
 #include <iostream>
 #include <cmath>
-#define __device__
-#define __managed__
+// #define __device__
+// #define __managed__
 class Managed
 {
 public:
@@ -42,7 +42,7 @@ namespace hdist
 
     struct Grid : public Managed
     {
-        const max_size = 1024;
+        const int max_size = 1024;
         double data0[max_size * max_size], data1[max_size * max_size];
         size_t current_buffer = 0;
         size_t length;

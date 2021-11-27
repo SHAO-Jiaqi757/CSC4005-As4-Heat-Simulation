@@ -39,9 +39,9 @@ __global__ void cuda_thread_routine()
         stable_vector[i] = 1;
         for (size_t j = 0; j < current_state->room_size; ++j)
         {
-            auto result = update_single(i, j, grid, current_state);
+            auto result = update_single(i, j, *grid, *current_state);
             stable_vector[i] = stable_vector[i] & result->stable;
-            grid[1, i, j] = result.temp;
+            *grid[1, i, j] = result.temp;
         }
     }
 
@@ -65,7 +65,6 @@ int main(int argc, char **argv)
     printf("thread_number: %d \n", thread_number);
 
     static std::chrono::high_resolution_clock::time_point begin, end;
-    static const char *algo_list[2] = {"jacobi", "sor"};
     graphic::GraphicContext context{"Assignment 4"};
     context.run([&](graphic::GraphicContext *context [[maybe_unused]], SDL_Window *)
                 {
