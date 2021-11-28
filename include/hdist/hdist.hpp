@@ -3,7 +3,17 @@
 #include <vector>
 #include <iostream>
 #include <cmath>
-
+#define DEBUG
+// #define RESULT_DEBUG
+template <typename Container>
+void printVector(const Container &cont)
+{
+    for (auto const &x : cont)
+    {
+        std::cout << x << " ";
+    }
+    std::cout << '\n';
+}
 namespace hdist
 {
 
@@ -15,7 +25,7 @@ namespace hdist
 
     struct State
     {
-        int room_size = 300;
+        int room_size = 10;
         float block_size = 2;
         int source_x = room_size / 2;
         int source_y = room_size / 2;
@@ -173,13 +183,13 @@ namespace hdist
         int current_buffer = 0;
         int room_size, rows, comm_size, rank;
 
-        explicit Grid(int rows,
-                      int room_size,
-                      double border_temp,
-                      double source_temp,
-                      int x,
-                      int y,
-                      int rank, int comm_size)
+        explicit MPI_Grid_Part(int rows,
+                               int room_size,
+                               double border_temp,
+                               double source_temp,
+                               int x,
+                               int y,
+                               int rank, int comm_size)
             : data0((rows + 2) * room_size), data1((rows + 2) * room_size), room_size(room_size), rows(rows + 2), comm_size(comm_size), rank(rank)
         {
             // add two ghost rows;
@@ -190,11 +200,10 @@ namespace hdist
                     if (j == 0 || j == room_size - 1 || (rank == 0 && (i == 1)) || (rank == comm_size - 1 && (i == rows + 1)))
                     {
                         this->operator[]({i, j}) = border_temp;
-                        break;
                     }
 
                     int row_offset = (rank < room_size % comm_size) ? rank * (room_size / comm_size + 1 + 2) : (room_size % comm_size) + rank * (room_size / comm_size + 2);
-                    if ((i - 1) >= 0 && (i - 1) < row && (i - 1 + row_offset == x && j == y))
+                    if ((i - 1) >= 0 && (i - 1) < rows && (i - 1 + row_offset == x && j == y))
                     {
                         this->operator[]({i, j}) = source_temp;
                     }
@@ -215,12 +224,12 @@ namespace hdist
 
         double &operator[](std::pair<size_t, size_t> index)
         {
-            return get_current_buffer()[index.first * length + index.second];
+            return get_current_buffer()[index.first * room_size + index.second];
         }
 
         double &operator[](std::tuple<Alt, size_t, size_t> index)
         {
-            return current_buffer == 1 ? data0[std::get<1>(index) * length + std::get<2>(index)] : data1[std::get<1>(index) * length + std::get<2>(index)];
+            return current_buffer == 1 ? data0[std::get<1>(index) * room_size + std::get<2>(index)] : data1[std::get<1>(index) * room_size + std::get<2>(index)];
         }
 
         void switch_buffer()
@@ -232,7 +241,7 @@ namespace hdist
     UpdateResult MPI_update_single(size_t i, size_t j, MPI_Grid_Part &grid, const State &state)
     {
         UpdateResult result{};
-        int row_offset = (grid.rank < grid.room_size % grid.comm_size) ? grid.rank * (grid..room_size / grid.comm_size + 1) : (grid.room_size % grid.comm_size) + grid.rank * (grid.room_size / grid.comm_size);
+        int row_offset = (grid.rank < grid.room_size % grid.comm_size) ? grid.rank * (grid.room_size / grid.comm_size + 1) : (grid.room_size % grid.comm_size) + grid.rank * (grid.room_size / grid.comm_size);
 
         if (j == 0 || j == state.room_size - 1 || (grid.rank == 0 && (i == 1)) || (grid.rank == grid.comm_size - 1 && (i == grid.rows - 2)))
         {
@@ -254,7 +263,9 @@ namespace hdist
     bool calculate(const State &state, MPI_Grid_Part &grid)
     {
         bool stabilized = true;
-
+#ifdef DEBUG
+        printf("------ rank: %d ; rows: %d; room_size: %d----- \n", grid.rank, grid.rows, grid.room_size);
+#endif // DEBUG
         for (size_t i = 1; i < grid.rows - 1; ++i)
         {
             for (size_t j = 0; j < grid.room_size; ++j)
@@ -262,8 +273,18 @@ namespace hdist
                 auto result = MPI_update_single(i, j, grid, state);
                 stabilized &= result.stable;
                 grid[{alt, i, j}] = result.temp;
+#ifdef DEBUG
+                printf("%f ", grid[{alt, i, j}]);
+#endif // DEBUG
             }
+#ifdef DEBUG
+            printf("\n");
+#endif // DEBUG
         }
+#ifdef DEBUG
+        printf("------ rank: %d ----- \n", grid.rank);
+#endif // DEBUG
+
         grid.switch_buffer();
         return stabilized;
     }

@@ -21,12 +21,17 @@ include_directories(
 
 # pthread
 add_executable(pthread src/pthread.cpp)
-target_link_libraries(pthread ${CMAKE_DL_LIBS} Threads::Threads ${MPI_CXX_LIBRARIES})
+target_link_libraries(pthread ${CMAKE_DL_LIBS} Threads::Threads )
 target_compile_options(pthread PRIVATE -Wall -Wpedantic -DImDrawIdx=unsigned)
 # omp
 add_executable(omp src/omp.cpp)
-target_link_libraries(omp ${CMAKE_DL_LIBS} Threads::Threads ${MPI_CXX_LIBRARIES} ${OpenMP_CXX_LIBRARIES})
+target_link_libraries(omp ${CMAKE_DL_LIBS} ${OpenMP_CXX_LIBRARIES})
 target_compile_options(omp PRIVATE -Wall -Wpedantic -DImDrawIdx=unsigned)
+# mpi
+add_executable(mpi src/mpi.cpp)
+target_link_libraries(mpi ${CMAKE_DL_LIBS} ${MPI_CXX_LIBRARIES})
+target_compile_options(mpi PRIVATE -Wall -Wpedantic -DImDrawIdx=unsigned)
+
 
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
