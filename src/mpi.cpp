@@ -16,6 +16,7 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Status status;
 
+    std::vector<double> result;
     bool finished = false, local_finished = false;
     int recv_buff_size, room_size, x, y;
     double border_temp, source_temp;
@@ -33,7 +34,7 @@ int main(int argc, char **argv)
         y = current_state.source_y;
         border_temp = current_state.border_temp;
         source_temp = current_state.source_temp;
-
+        result.resize(room_size * room_size);
         begin = std::chrono::high_resolution_clock::now();
     }
     MPI_Bcast(&room_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -52,7 +53,6 @@ int main(int argc, char **argv)
 
     if (rank == 0)
     {
-        std::vector<double> result(room_size * room_size);
 
         int offset = rows;
         while (!finished)
@@ -75,11 +75,10 @@ int main(int argc, char **argv)
                 int rows_part = (rank_id < (room_size % comm_size)) ? room_size / comm_size + 1 : room_size / comm_size;
                 MPI_Recv(result.data() + offset * room_size, rows_part * room_size, MPI_DOUBLE, rank_id, 0, MPI_COMM_WORLD, &status);
                 offset += rows_part;
-
-                MPI_Reduce(&local_finished, &finished, 1, MPI_BYTE, MPI_LAND, 0, MPI_COMM_WORLD);
-
-                MPI_Send(&finished, 1, MPI_BYTE, rank_id, 8, MPI_COMM_WORLD);
             }
+            MPI_Reduce(&local_finished, &finished, 1, MPI_BYTE, MPI_LAND, 0, MPI_COMM_WORLD);
+            // MPI_Send(&finished, 1, MPI_BYTE, rank_id, 8, MPI_COMM_WORLD);
+            MPI_Bcast(&finished, 1, MPI_BYTE, 0, MPI_COMM_WORLD);
             offset = rows;
         }
         end = std::chrono::high_resolution_clock::now();
@@ -103,10 +102,6 @@ int main(int argc, char **argv)
             if (rank != comm_size - 1)
             {
 
-                // int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
-                //                  int dest, int sendtag, void *recvbuf, int recvcount,
-                //                  MPI_Datatype recvtype, int source, int recvtag,
-                //                  MPI_Comm comm, MPI_Status *status)
                 MPI_Sendrecv(grid.get_current_buffer().data() + last_row_offset, grid.room_size, MPI_DOUBLE,
                              rank + 1, 1, grid.get_current_buffer().data() + last_ghost_row_offset, grid.room_size,
                              MPI_DOUBLE, rank + 1, 1,
@@ -119,7 +114,7 @@ int main(int argc, char **argv)
             MPI_Send(grid.get_current_buffer().data() + first_row_offset, rows * room_size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
 
             MPI_Reduce(&local_finished, &finished, 1, MPI_BYTE, MPI_LAND, 0, MPI_COMM_WORLD);
-            MPI_Recv(&finished, 1, MPI_BYTE, 0, 8, MPI_COMM_WORLD, &status);
+            MPI_Bcast(&finished, 1, MPI_BYTE, 0, MPI_COMM_WORLD);
             if (finished)
                 break;
         }
