@@ -3,7 +3,7 @@
 #include <vector>
 #include <iostream>
 #include <cmath>
-#define DEBUG
+// #define MYDEBUG
 // #define RESULT_DEBUG
 template <typename Container>
 void printVector(const Container &cont)
@@ -25,7 +25,7 @@ namespace hdist
 
     struct State
     {
-        int room_size = 10;
+        int room_size = 300;
         float block_size = 2;
         int source_x = room_size / 2;
         int source_y = room_size / 2;
@@ -181,7 +181,7 @@ namespace hdist
     {
         std::vector<double> data0, data1;
         int current_buffer = 0;
-        int room_size, rows, comm_size, rank;
+        int room_size, rows_with_ghost, comm_size, rank;
 
         explicit MPI_Grid_Part(int rows,
                                int room_size,
@@ -190,7 +190,7 @@ namespace hdist
                                int x,
                                int y,
                                int rank, int comm_size)
-            : data0((rows + 2) * room_size), data1((rows + 2) * room_size), room_size(room_size), rows(rows + 2), comm_size(comm_size), rank(rank)
+            : data0((rows + 2) * room_size), data1((rows + 2) * room_size), room_size(room_size), rows_with_ghost(rows + 2), comm_size(comm_size), rank(rank)
         {
             // add two ghost rows;
             for (size_t i = 0; i < rows + 2; ++i)
@@ -243,7 +243,7 @@ namespace hdist
         UpdateResult result{};
         int row_offset = (grid.rank < grid.room_size % grid.comm_size) ? grid.rank * (grid.room_size / grid.comm_size + 1) : (grid.room_size % grid.comm_size) + grid.rank * (grid.room_size / grid.comm_size);
 
-        if (j == 0 || j == state.room_size - 1 || (grid.rank == 0 && (i == 1)) || (grid.rank == grid.comm_size - 1 && (i == grid.rows - 2)))
+        if (j == 0 || j == state.room_size - 1 || (grid.rank == 0 && (i == 1)) || (grid.rank == grid.comm_size - 1 && (i == grid.rows_with_ghost - 2)))
         {
             result.temp = state.border_temp;
         }
@@ -263,29 +263,28 @@ namespace hdist
     bool calculate(const State &state, MPI_Grid_Part &grid)
     {
         bool stabilized = true;
-#ifdef DEBUG
-        printf("------ rank: %d ; rows: %d; room_size: %d----- \n", grid.rank, grid.rows, grid.room_size);
-#endif // DEBUG
-        for (size_t i = 1; i < grid.rows - 1; ++i)
+#ifdef MYDEBUG
+        printf("------ rank: %d ; rows_with_ghost: %d; room_size: %d----- \n", grid.rank, grid.rows_with_ghost, grid.room_size);
+#endif // MYDEBUG
+        for (size_t i = 1; i < grid.rows_with_ghost - 1; ++i)
         {
             for (size_t j = 0; j < grid.room_size; ++j)
             {
                 auto result = MPI_update_single(i, j, grid, state);
                 stabilized &= result.stable;
                 grid[{alt, i, j}] = result.temp;
-#ifdef DEBUG
+#ifdef MYDEBUG
                 printf("%f ", grid[{alt, i, j}]);
 #endif // DEBUG
             }
-#ifdef DEBUG
+#ifdef MYDEBUG
             printf("\n");
-#endif // DEBUG
+#endif // MYDEBUG
         }
-#ifdef DEBUG
-        printf("------ rank: %d ----- \n", grid.rank);
-#endif // DEBUG
-
         grid.switch_buffer();
+#ifdef MYDEBUG
+        printf("------ --------- ----- \n");
+#endif // MYDEBUG
         return stabilized;
     }
 

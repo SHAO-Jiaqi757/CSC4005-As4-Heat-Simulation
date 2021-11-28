@@ -3,7 +3,7 @@ project(csc4005_as4)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message("Debug mode: add race condition detector")
-#     set(CMAKE_CXX_FLAGS "-fsanitize=thread")
+    set(CMAKE_CXX_FLAGS "-fsanitize=thread")
 endif()
 find_package(MPI REQUIRED)
 find_package(Threads REQUIRED)
@@ -34,17 +34,17 @@ target_compile_options(mpi PRIVATE -Wall -Wpedantic -DImDrawIdx=unsigned)
 
 
 
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    message("release mode include cuda")
-    enable_language(CUDA)
-    set(CMAKE_CUDA_STANDARD 14)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -ccbin=/opt/rh/devtoolset-10/root/usr/bin/gcc -gencode=arch=compute_75,code=[sm_75,compute_75]")
-    add_executable(cuda src/cuda.cu)
-    target_link_libraries(cuda ${CMAKE_DL_LIBS} Threads::Threads ${MPI_CXX_LIBRARIES})
-    set_target_properties(
-        cuda
-        PROPERTIES
-        CUDA_SEPARABLE_COMPILATION ON
-        CUDA_ARCHITECTURES OFF
-        )
-endif()
+# if(CMAKE_BUILD_TYPE STREQUAL "Release")
+#     message("release mode include cuda")
+#     enable_language(CUDA)
+#     set(CMAKE_CUDA_STANDARD 14)
+#     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -ccbin=/opt/rh/devtoolset-10/root/usr/bin/gcc -gencode=arch=compute_75,code=[sm_75,compute_75]")
+#     add_executable(cuda src/cuda.cu)
+#     target_link_libraries(cuda ${CMAKE_DL_LIBS} Threads::Threads ${MPI_CXX_LIBRARIES})
+#     set_target_properties(
+#         cuda
+#         PROPERTIES
+#         CUDA_SEPARABLE_COMPILATION ON
+#         CUDA_ARCHITECTURES OFF
+#         )
+# endif()
