@@ -16,7 +16,7 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Status status;
 
-    bool finished = false;
+    bool finished = false, local_finished = false;
     int recv_buff_size, room_size, x, y;
     double border_temp, source_temp;
 
@@ -66,7 +66,7 @@ int main(int argc, char **argv)
                          MPI_DOUBLE, rank + 1, 1,
                          MPI_COMM_WORLD, &status);
             // calculation...
-            bool part_finish = calculate(current_state, grid);
+            local_finished = calculate(current_state, grid);
             memcpy(result.data(), grid.get_current_buffer().data() + first_row_offset, rows * room_size * sizeof(double));
             for (int rank_id = 1; rank_id < comm_size; ++rank_id)
             {
@@ -76,22 +76,9 @@ int main(int argc, char **argv)
                 MPI_Recv(result.data() + offset * room_size, rows_part * room_size, MPI_DOUBLE, rank_id, 0, MPI_COMM_WORLD, &status);
                 offset += rows_part;
 
-                // TODO: MPI_Reduce
-                bool recv_finish;
+                MPI_Reduce(&local_finished, &finished, 1, MPI_BYTE, MPI_LAND, 0, MPI_COMM_WORLD);
 
-                MPI_Recv(&recv_finish, 1, MPI_BYTE, rank_id, 9, MPI_COMM_WORLD, &status);
-#ifdef MYDEBUG
-                printf("I am rank %d, receive stable signal %d from rank %d \n", rank, recv_finish, rank_id);
-
-#endif
-
-                part_finish &= recv_finish;
-                MPI_Send(&part_finish, 1, MPI_BYTE, rank_id, 8, MPI_COMM_WORLD);
-#ifdef MYDEBUG
-                printf("I am rank %d, sending finished signal %d to rank %d \n", rank, part_finish, rank_id);
-
-#endif
-                finished = part_finish;
+                MPI_Send(&finished, 1, MPI_BYTE, rank_id, 8, MPI_COMM_WORLD);
             }
             offset = rows;
         }
@@ -113,11 +100,6 @@ int main(int argc, char **argv)
                          rank - 1, 1, grid.get_current_buffer().data() + first_ghost_row_offset, grid.room_size,
                          MPI_DOUBLE, rank - 1, 1,
                          MPI_COMM_WORLD, &status);
-#ifdef MYDEBUG
-            printf("===== rank %d send to rank %d, receive from rank %d ==== \n", rank, rank - 1, rank - 1);
-            // printVector(grid.get_current_buffer());
-            printf(" ----------------------------------------------------------------\n");
-#endif
             if (rank != comm_size - 1)
             {
 
@@ -129,29 +111,15 @@ int main(int argc, char **argv)
                              rank + 1, 1, grid.get_current_buffer().data() + last_ghost_row_offset, grid.room_size,
                              MPI_DOUBLE, rank + 1, 1,
                              MPI_COMM_WORLD, &status);
-#ifdef MYDEBUG
-                printf("===== rank %d send to rank %d, receive from rank %d ====== \n", rank, rank + 1, rank + 1);
-                // printVector(grid.get_current_buffer());
-                printf(" ----------------------------------------------------------------\n");
-#endif
             }
-
             // calculation...
-            bool part_finish = calculate(current_state, grid);
+            local_finished = calculate(current_state, grid);
 
             // gather;
             MPI_Send(grid.get_current_buffer().data() + first_row_offset, rows * room_size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
 
-            // send finished signal;
-            MPI_Send(&part_finish, 1, MPI_BYTE, 0, 9, MPI_COMM_WORLD);
-#ifdef MYDEBUG
-            printf("I am rank %d, sending stable signal %d to rank 0 \n", rank, part_finish);
-
-#endif
+            MPI_Reduce(&local_finished, &finished, 1, MPI_BYTE, MPI_LAND, 0, MPI_COMM_WORLD);
             MPI_Recv(&finished, 1, MPI_BYTE, 0, 8, MPI_COMM_WORLD, &status);
-#ifdef MYDEBUG
-            printf("I am rank %d, receive finished signal %d from rank 0 \n", rank, finished);
-#endif
             if (finished)
                 break;
         }
