@@ -4,7 +4,7 @@
 #include <iostream>
 #include <cmath>
 // #define MYDEBUG
-#define RESULT_DEBUG
+// #define RESULT_DEBUG
 template <typename Container>
 void printVector(const Container &cont)
 {
@@ -25,7 +25,7 @@ namespace hdist
 
     struct State
     {
-        int room_size = 50;
+        int room_size = 10;
         float block_size = 2;
         int source_x = room_size / 2;
         int source_y = room_size / 2;

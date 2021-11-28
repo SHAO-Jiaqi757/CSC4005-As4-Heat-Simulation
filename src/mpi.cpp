@@ -11,24 +11,30 @@ int main(int argc, char **argv)
 {
     MPI_Init(&argc, &argv);
     // UNUSED(argc, argv);
-    int rank, comm_size;
+    int rank, comm_size, total_iter;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Status status;
 
     std::vector<double> result;
     bool finished = false, local_finished = false;
-    int recv_buff_size, room_size, x, y;
+    int room_size, x, y;
     double border_temp, source_temp;
 
-    static hdist::State current_state, last_state;
+    static hdist::State current_state;
     static std::chrono::high_resolution_clock::time_point begin, end; // in rank 0
 
-    // std::vector<int> sendcnts, dipls;
-    // std::vector<double> send_data;
+    std::vector<int> sendcnts, dipls;
     if (rank == 0)
     {
-        bool first = true;
+        if (argc < 3)
+        {
+            printf("Error: Useage: mpi <room_size> <iteration>\n");
+            return 0;
+        }
+        current_state.room_size = atoi(argv[1]);
+        total_iter = atoi(argv[2]);
+
         room_size = current_state.room_size;
         x = current_state.source_x;
         y = current_state.source_y;
@@ -36,6 +42,16 @@ int main(int argc, char **argv)
         source_temp = current_state.source_temp;
         result.resize(room_size * room_size);
         begin = std::chrono::high_resolution_clock::now();
+        int avg_rows = room_size / comm_size;
+        int remain_rows = room_size % comm_size;
+        int offset_row = 0;
+        for (int rank_id = 0; rank_id < comm_size; rank_id++)
+        {
+            int local_rows = (rank_id < remain_rows) ? avg_rows + 1 : avg_rows;
+            sendcnts.push_back(local_rows * room_size);
+            dipls.push_back(offset_row * room_size);
+            offset_row += local_rows;
+        }
     }
     MPI_Bcast(&room_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&x, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -53,8 +69,8 @@ int main(int argc, char **argv)
 
     if (rank == 0)
     {
-
-        int offset = rows;
+        int tmp_iter = 0;
+        // int offset = rows;
         while (!finished)
         {
             // int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
@@ -67,21 +83,22 @@ int main(int argc, char **argv)
                          MPI_COMM_WORLD, &status);
             // calculation...
             local_finished = calculate(current_state, grid);
-            memcpy(result.data(), grid.get_current_buffer().data() + first_row_offset, rows * room_size * sizeof(double));
-            for (int rank_id = 1; rank_id < comm_size; ++rank_id)
-            {
 
-                // gather
-                int rows_part = (rank_id < (room_size % comm_size)) ? room_size / comm_size + 1 : room_size / comm_size;
-                MPI_Recv(result.data() + offset * room_size, rows_part * room_size, MPI_DOUBLE, rank_id, 0, MPI_COMM_WORLD, &status);
-                offset += rows_part;
-            }
-            MPI_Reduce(&local_finished, &finished, 1, MPI_BYTE, MPI_LAND, 0, MPI_COMM_WORLD);
-            // MPI_Send(&finished, 1, MPI_BYTE, rank_id, 8, MPI_COMM_WORLD);
+            MPI_Gatherv(grid.get_current_buffer().data() + first_row_offset, rows * room_size, MPI_DOUBLE, result.data(), sendcnts.data(), dipls.data(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            // MPI_Reduce(&local_finished, &finished, 1, MPI_BYTE, MPI_LAND, 0, MPI_COMM_WORLD);
+            if (tmp_iter >= total_iter)
+                finished = true;
+
             MPI_Bcast(&finished, 1, MPI_BYTE, 0, MPI_COMM_WORLD);
-            offset = rows;
+            tmp_iter++;
+            // offset = rows;
         }
         end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
+        printf("cores: %d \n", comm_size);
+        printf("problem_size: %d \n", current_state.room_size);
+        printf("iterations: %d \n", total_iter);
+        printf("duration(ns/iter): %lld \n", duration / total_iter);
 #ifdef RESULT_DEBUG
         printf("result (length: %d): ", result.size());
         printVector(result);
@@ -111,9 +128,9 @@ int main(int argc, char **argv)
             local_finished = calculate(current_state, grid);
 
             // gather;
-            MPI_Send(grid.get_current_buffer().data() + first_row_offset, rows * room_size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+            MPI_Gatherv(grid.get_current_buffer().data() + first_row_offset, rows * room_size, MPI_DOUBLE, result.data(), sendcnts.data(), dipls.data(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-            MPI_Reduce(&local_finished, &finished, 1, MPI_BYTE, MPI_LAND, 0, MPI_COMM_WORLD);
+            // MPI_Reduce(&local_finished, &finished, 1, MPI_BYTE, MPI_LAND, 0, MPI_COMM_WORLD);
             MPI_Bcast(&finished, 1, MPI_BYTE, 0, MPI_COMM_WORLD);
             if (finished)
                 break;
