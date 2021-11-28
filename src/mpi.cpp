@@ -6,6 +6,7 @@
 template <typename... Args>
 void UNUSED(Args &&...args [[maybe_unused]]) {}
 void get_slice(int &start_row, int &end_row, int rank, int comm_size, int room_size);
+void sequential(hdist::State current_state, int total_iter); // when using 1 cores;
 
 int main(int argc, char **argv)
 {
@@ -42,6 +43,11 @@ int main(int argc, char **argv)
         source_temp = current_state.source_temp;
         result.resize(room_size * room_size);
         begin = std::chrono::high_resolution_clock::now();
+        if (comm_size == 1)
+        {
+            sequential(current_state, total_iter);
+            return 0;
+        }
         int avg_rows = room_size / comm_size;
         int remain_rows = room_size % comm_size;
         int offset_row = 0;
@@ -138,4 +144,26 @@ int main(int argc, char **argv)
     }
     MPI_Finalize();
     return 0;
+}
+
+void sequential(hdist::State current_state, int total_iter)
+{
+    auto begin = std::chrono::high_resolution_clock::now();
+    auto grid = hdist::Grid{
+        static_cast<size_t>(current_state.room_size),
+        current_state.border_temp,
+        current_state.source_temp,
+        static_cast<size_t>(current_state.source_x),
+        static_cast<size_t>(current_state.source_y)};
+    for (int i = 0; i < total_iter; i++)
+    {
+        calculate(current_state, grid);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
+    printf("cores: %d \n", 1);
+    printf("problem_size: %d \n", current_state.room_size);
+    printf("iterations: %d \n", total_iter);
+    printf("duration(ns/iter): %lld \n", duration / total_iter);
+    MPI_Finalize();
 }

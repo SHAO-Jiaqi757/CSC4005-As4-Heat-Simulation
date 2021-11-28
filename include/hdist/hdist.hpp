@@ -138,42 +138,16 @@ namespace hdist
     {
         bool stabilized = true;
 
-        switch (state.algo)
+        for (size_t i = 0; i < state.room_size; ++i)
         {
-        case Algorithm::Jacobi:
-            for (size_t i = 0; i < state.room_size; ++i)
+            for (size_t j = 0; j < state.room_size; ++j)
             {
-                for (size_t j = 0; j < state.room_size; ++j)
-                {
-                    auto result = update_single(i, j, grid, state);
-                    stabilized &= result.stable;
-                    grid[{alt, i, j}] = result.temp;
-                }
-            }
-            grid.switch_buffer();
-            break;
-        case Algorithm::Sor:
-            for (auto k : {0, 1})
-            {
-                for (size_t i = 0; i < state.room_size; i++)
-                {
-                    for (size_t j = 0; j < state.room_size; j++)
-                    {
-                        if (k == ((i + j) & 1))
-                        {
-                            auto result = update_single(i, j, grid, state);
-                            stabilized &= result.stable;
-                            grid[{alt, i, j}] = result.temp;
-                        }
-                        else
-                        {
-                            grid[{alt, i, j}] = grid[{i, j}];
-                        }
-                    }
-                }
-                grid.switch_buffer();
+                auto result = update_single(i, j, grid, state);
+                stabilized &= result.stable;
+                grid[{alt, i, j}] = result.temp;
             }
         }
+        grid.switch_buffer();
         return stabilized;
     };
     // MPI usage ---
