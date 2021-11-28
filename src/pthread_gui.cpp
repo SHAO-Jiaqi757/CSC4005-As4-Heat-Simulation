@@ -16,7 +16,6 @@ void get_slice(int &start_row, int &end_row, int thread_id, int thread_number);
 int thread_number = 2;
 void *pthread_calculate(void *arg);
 void pthread_routine();
-std::vector<bool> stable_vector(thread_number, 1);
 
 bool first = true;
 bool finished = false;
@@ -36,11 +35,10 @@ int main(int argc, char **argv)
         printf("Error: No <thread_number> found! \nUseage: pthread_gui <thread_number> \n");
         return 0;
     }
+    int iter = 0;
     thread_number = atoi(argv[1]);
     printf("thread_number: %d \n", thread_number);
-
     static std::chrono::high_resolution_clock::time_point begin, end;
-    static const char *algo_list[2] = {"jacobi", "sor"};
     graphic::GraphicContext context{"Assignment 4"};
     context.run([&](graphic::GraphicContext *context [[maybe_unused]], SDL_Window *)
                 {
@@ -62,11 +60,8 @@ int main(int argc, char **argv)
         ImGui::DragInt("Source X", &current_state.source_x, 1, 1, current_state.room_size - 2, "%d");
         ImGui::DragInt("Source Y", &current_state.source_y, 1, 1, current_state.room_size - 2, "%d");
         ImGui::DragFloat("Tolerance", &current_state.tolerance, 0.01, 0.01, 1, "%f");
-        ImGui::ListBox("Algorithm", reinterpret_cast<int *>(&current_state.algo), algo_list, 2);
+        ImGui::Text("Algorithm Jacobi");
 
-        if (current_state.algo == hdist::Algorithm::Sor) {
-            ImGui::DragFloat("Sor Constant", &current_state.sor_constant, 0.01, 0.0, 20.0, "%f");
-        }
 
         if (current_state.room_size != last_state.room_size) {
             grid = hdist::Grid{
@@ -76,6 +71,7 @@ int main(int argc, char **argv)
                     static_cast<size_t>(current_state.source_x),
                     static_cast<size_t>(current_state.source_y)};
             first = true;
+            iter = 0;
         }
 
         if (current_state != last_state) {
@@ -92,10 +88,12 @@ int main(int argc, char **argv)
         if (!finished) {
             // finished = hdist::calculate(current_state, grid);
             pthread_routine();
-
-            if (finished) end = std::chrono::high_resolution_clock::now();
+            iter++;
+            if (iter == 1000) finished = true;
+            if (finished)
+                end = std::chrono::high_resolution_clock::now();
         } else {
-            ImGui::Text("stabilized in %lld ns", std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
+            ImGui::Text("Finish 1000 Iteration for %lld ns", std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
         }
 
         // drawing...;
@@ -128,26 +126,23 @@ void pthread_routine()
     for (int i = 0; i < thread_number; i++)
     {
         pthread_join(threads[i], NULL);
-        stabilized &= stable_vector[i];
     }
+
     grid.switch_buffer();
-    finished = stabilized;
+    finished = false;
 }
 void *pthread_calculate(void *arg)
 {
     int thread_id = *(int *)arg;
     int start_row, end_row;
-    stable_vector[thread_id] = 1;
 
     get_slice(start_row, end_row, thread_id, thread_number);
     // printf("thread [%d] >> start row: %d, end row: %d\n", thread_id, start_row, end_row);
-
     for (size_t i = start_row; i < end_row; ++i)
     {
         for (size_t j = 0; j < current_state.room_size; ++j)
         {
             auto result = update_single(i, j, grid, current_state);
-            stable_vector[thread_id] = stable_vector[thread_id] & result.stable;
             grid[{hdist::alt, i, j}] = result.temp;
         }
     }
